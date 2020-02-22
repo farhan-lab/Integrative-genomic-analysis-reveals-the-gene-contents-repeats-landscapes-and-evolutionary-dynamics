@@ -1,0 +1,61 @@
+#This file contain  commands and scripts examples and a step by step protocol, established during the prject entitled "Integrative genomic analysis reveals the gene contents, repeats landscapes and evolutionary dynamics of the B chromosomes in multiple species". Author Syed Farhan Ahmad
+The same guildelines could be followed by researchers with the specific modifications according to different requirements, to identify the genomic sequences on B chormosomes.
+
+#Step 1. Preprocessing of NGS data for alignmnets and assembly (fastQC, Adaptar trimming, Quality filtering)
+
+fastqc input.fq
+fastq_quality_filter -q 28 -p 80 -i input-raw.fq -o ouput-filtered.fq -Q33
+pairfq makepairs -f R1_001_filtered.fastq -r R2_001_filtered.fastq -fp R1_001.paired.fq -rp R2_001.paired.fq -fs R1_001.single.fq -rs R2_001.single.fq
+java -jar trimmomatic-0.30.jar PE R1_001_filtered.fastq R2_001_filtered.fastq trimmed_forward_paired.fq trimmed_forward_unpaired.fq trimmed_reverse_paired.fq trimmed_reverse_unpaired.fq ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+
+#Step 2. Alignments of preporocessed and filtered data to the reference genomes by bowtie2
+bowtie2-build [options]* -f reference-genome.fa reference-genome-indexed.fa
+bowtie2 --very-sensitive -x reference-genome-indexed.fa -1 0B_mysample_forward_paired.fq -2  0B_mysample_reverse_paired.fq -U 2B-unpaired_01.fastq,2B-unpaired_02.fastq, -p 64 -S 0B_verysens.sam
+bowtie2 --very-sensitive -x reference-genome-indexed.fa -1 2B_mysample_forward_paired.fq -2  2B_mysample_reverse_paired.fq -U 2B-unpaired_01.fastq,2B-unpaired_02.fastq, -p 64 -S 2B_verysens.sam
+
+
+#Step 3. Convert alignments ouputs SAM in sorted BAM 
+
+samtools view -bS 0B_verysens.sam > 0B_verysens.sam.bam
+samtools view -bS 2B_verysens.sam > 2B_verysens.sam.bam
+
+samtools sort 0B_verysens.sam.bam 0B_verysens_sorted.bam
+samtools sort 2B_verysens.sam.bam 2B_verysens_sorted.bam
+
+#Step. 4 Calculate per base coverage
+
+bedtools genomecov -ibam -d 0B_verysens_sorted.bam > 0B_per-base.bed
+bedtools genomecov -ibam -d 2B_verysens_sorted.bam > 2B_per-base.bed
+
+#Step 5 Merge the two bed files row by row into a single ouput file using bash customized script as follows:
+awk 'NR==FNR{a[$1,$2]=$3;next} ($1,$2) in a{print $0, a[$1,$2]}' 2B_per-base.bed 0B_per-base.bed > output-merged-0B-2B.txt
+
+
+$Step 6. Discard genomic sites with less than 15X coverage with the following simple awk command 
+
+awk '$3 > 15 && $4 > 15' output-merged-0B-2B.txt > output-0B-2B-greater15x.txt
+Note that $3 and $4 are the columns of the file which represent the perbase coverage of 0B and 2B respectively. 
+
+Step 7. Calculate the 2B/0B ratio and extract the genomic regions with 2B genome having atleast 2x times greater coverage than 0B this means the extra copies present on the B chromosome. This can be done with our custom simple one liner awk commands as follows:
+
+awk -v OFS='\t' '{$5 = sprintf("%.3f", $4 / $3)}1' output-0B-2B-greater15x.txt > ratio-2B-0B.txt
+awk '$5 > 2' ratio-2B-0B.txt > coverage-ratio-difference-2xtimes.txt
+
+#Step 8 Extract the B-blocks (sequences on B) with our custome python script availiable at github (https://github.com/farhan-phd/Integrative-genomic-analysis-reveals-the-gene-contents-repeats-landscapes-and-evolutionary-dynamics/blob/master/Blocks-extraction.py)
+
+#First we need to reformat the above output file by the following command. Note the input file for the python script must be a tab limited four column bed file. 
+
+awk -v OFS='\t' '{print $1, $2, $3, $4}' coverage-ratio-difference-2xtimes.txt > blocks-input.txt
+
+#Then run the blocks extraction script as:
+Blocks-extraction.py bp 200 -stdv 2 ratio-2B-0B.txt 
+
+
+
+
+
+
+
+
+
+
