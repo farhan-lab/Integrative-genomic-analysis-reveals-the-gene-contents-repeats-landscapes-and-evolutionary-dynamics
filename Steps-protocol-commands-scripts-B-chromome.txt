@@ -4,9 +4,9 @@ The same guildelines could be followed by researchers with the specific modifica
 #Step 1. Preprocessing of NGS data for alignmnets and assembly (fastQC, Adaptar trimming, Quality filtering)
 
 fastqc input.fq
-fastq_quality_filter -q 28 -p 80 -i input-raw.fq -o ouput-filtered.fq -Q33
-pairfq makepairs -f R1_001_filtered.fastq -r R2_001_filtered.fastq -fp R1_001.paired.fq -rp R2_001.paired.fq -fs R1_001.single.fq -rs R2_001.single.fq
 java -jar trimmomatic-0.30.jar PE R1_001_filtered.fastq R2_001_filtered.fastq trimmed_forward_paired.fq trimmed_forward_unpaired.fq trimmed_reverse_paired.fq trimmed_reverse_unpaired.fq ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+fastq_quality_filter -q 28 -p 80 -i input-trimmed.fq -o ouput-filtered.fq -Q33
+pairfq makepairs -f R1_001_filtered.fastq -r R2_001_filtered.fastq -fp R1_001.paired.fq -rp R2_001.paired.fq -fs R1_001.single.fq -rs R2_001.single.fq
 
 #Step 2. Alignments of preporocessed and filtered data to the reference genomes by bowtie2
 bowtie2-build [options]* -f reference-genome.fa reference-genome-indexed.fa
